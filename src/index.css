@@ -1,0 +1,241 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base ──────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background-color: #0A0E1A;
+  color: #E2E8F0;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ─── Scrollbar Cyberpunk ────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track  { background: #0A0E1A; }
+::-webkit-scrollbar-thumb  { background: #00F5FF44; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #00F5FFaa; }
+
+/* ─── Selección de texto ──────────────────────────────────── */
+::selection { background: #00F5FF33; color: #00F5FF; }
+
+/* ─── Clases de utilidad personalizadas ──────────────────── */
+@layer components {
+
+  /* Tarjeta base estilo cyberpunk */
+  .cyber-card {
+    @apply bg-cyber-card border border-cyber-border rounded-xl p-5
+           shadow-card backdrop-blur-sm transition-all duration-300;
+  }
+  .cyber-card:hover {
+    @apply border-cyber-cyan/40 shadow-neon-cyan;
+  }
+
+  /* Botón primario neón */
+  .btn-cyber {
+    @apply relative inline-flex items-center gap-2 px-5 py-2.5
+           bg-cyber-cyan/10 border border-cyber-cyan text-cyber-cyan
+           font-display font-semibold text-sm rounded-lg
+           transition-all duration-200 cursor-pointer select-none
+           hover:bg-cyber-cyan/20 hover:shadow-neon-cyan
+           active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Botón secundario */
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-5 py-2.5
+           bg-cyber-surface border border-cyber-border text-cyber-text
+           font-display font-semibold text-sm rounded-lg
+           transition-all duration-200 cursor-pointer select-none
+           hover:border-cyber-cyan/50 hover:text-cyber-cyan
+           active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Botón danger */
+  .btn-danger {
+    @apply inline-flex items-center gap-2 px-5 py-2.5
+           bg-cyber-red/10 border border-cyber-red text-cyber-red
+           font-display font-semibold text-sm rounded-lg
+           transition-all duration-200 cursor-pointer select-none
+           hover:bg-cyber-red/20 hover:shadow-neon-red
+           active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+
+  /* Input estilo cyberpunk */
+  .cyber-input {
+    @apply w-full bg-cyber-bg border border-cyber-border rounded-lg px-4 py-2.5
+           text-cyber-text font-mono text-sm
+           placeholder:text-cyber-muted
+           focus:outline-none focus:border-cyber-cyan focus:shadow-neon-cyan
+           transition-all duration-200;
+  }
+
+  /* Badge de estado */
+  .badge-valid {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+           bg-cyber-lime/10 border border-cyber-lime/50 text-cyber-lime
+           font-mono text-xs font-semibold;
+  }
+  .badge-revoked {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+           bg-cyber-red/10 border border-cyber-red/50 text-cyber-red
+           font-mono text-xs font-semibold;
+  }
+  .badge-pending {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+           bg-cyber-yellow/10 border border-cyber-yellow/50 text-cyber-yellow
+           font-mono text-xs font-semibold;
+  }
+
+  /* Hash display */
+  .hash-display {
+    @apply font-mono text-xs text-cyber-cyan bg-cyber-bg
+           border border-cyber-border rounded-lg px-3 py-1.5
+           break-all leading-relaxed;
+  }
+
+  /* Línea divisora cyberpunk */
+  .cyber-divider {
+    @apply w-full h-px bg-gradient-to-r from-transparent via-cyber-cyan/30 to-transparent my-4;
+  }
+
+  /* Dot de estado animado */
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+  .status-dot.online  { @apply bg-cyber-lime shadow-neon-lime animate-pulse; }
+  .status-dot.offline { @apply bg-cyber-red shadow-neon-red animate-pulse; }
+  .status-dot.pending { @apply bg-cyber-yellow shadow-neon-yellow animate-pulse; }
+}
+
+/* ─── Grid de fondo animado ───────────────────────────────── */
+.bg-grid {
+  background-image:
+    linear-gradient(rgba(0,245,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ─── Efecto Scanline ─────────────────────────────────────── */
+.scanline::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0, 0, 0, 0.03) 50%
+  );
+  background-size: 100% 4px;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ─── Holographic card ────────────────────────────────────── */
+@keyframes hologram {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.holographic {
+  background: linear-gradient(
+    135deg,
+    #00F5FF15, #BF5AF215, #39FF1415, #FFE60015, #FF2D5515, #00F5FF15
+  );
+  background-size: 400% 400%;
+  animation: hologram 6s ease infinite;
+}
+
+/* ─── Typing cursor ───────────────────────────────────────── */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.typing-cursor::after {
+  content: '▌';
+  color: #00F5FF;
+  animation: blink 1s step-end infinite;
+}
+
+/* ─── Drag zone ───────────────────────────────────────────── */
+.drop-zone-idle {
+  border: 2px dashed #1e2d45;
+  transition: all 0.3s ease;
+}
+.drop-zone-hover {
+  border: 2px dashed #00F5FF;
+  box-shadow: 0 0 30px rgba(0,245,255,0.2), inset 0 0 30px rgba(0,245,255,0.05);
+  background: rgba(0,245,255,0.03);
+}
+.drop-zone-processing {
+  border: 2px solid #FFE600;
+  box-shadow: 0 0 20px rgba(255,230,0,0.3);
+}
+.drop-zone-done {
+  border: 2px solid #39FF14;
+  box-shadow: 0 0 20px rgba(57,255,20,0.3);
+}
+
+/* ─── Timeline blocks ─────────────────────────────────────── */
+.timeline-block {
+  position: relative;
+  transition: all 0.3s ease;
+}
+.timeline-block:hover {
+  transform: translateX(4px);
+}
+.timeline-connector {
+  position: absolute;
+  left: 19px;
+  top: 40px;
+  bottom: -8px;
+  width: 2px;
+  background: linear-gradient(to bottom, #00F5FF44, #1e2d45);
+}
+
+/* ─── Terminal text ───────────────────────────────────────── */
+.terminal-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: #39FF14;
+  line-height: 1.6;
+}
+
+/* ─── Glitch overlay ──────────────────────────────────────── */
+@keyframes glitchOverlay {
+  0%   { clip-path: inset(10% 0 80% 0); transform: translate(-4px); }
+  20%  { clip-path: inset(60% 0 20% 0); transform: translate(4px); }
+  40%  { clip-path: inset(30% 0 50% 0); transform: translate(-2px); }
+  60%  { clip-path: inset(80% 0 5%  0); transform: translate(3px); }
+  80%  { clip-path: inset(5%  0 60% 0); transform: translate(-3px); }
+  100% { clip-path: inset(40% 0 30% 0); transform: translate(2px); }
+}
+.glitch-text {
+  position: relative;
+}
+.glitch-text::before,
+.glitch-text::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.glitch-text::before {
+  color: #FF2D55;
+  animation: glitchOverlay 0.4s infinite step-end;
+}
+.glitch-text::after {
+  color: #00F5FF;
+  animation: glitchOverlay 0.4s 0.1s infinite step-end;
+}
+
+/* ─── Number ticker ───────────────────────────────────────── */
+.neon-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  color: #00F5FF;
+  text-shadow: 0 0 10px rgba(0,245,255,0.7);
+}

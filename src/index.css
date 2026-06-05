@@ -2,9 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  background-color: #C4B5FD; /* Fondo violeta vibrante */
-  background-image: radial-gradient(#000 1px, transparent 1px);
-  background-size: 24px 24px;
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased font-sans m-0 dark:bg-[#07090F] dark:text-[#00FF66] transition-colors duration-300;
+  }
+}
+
+/* Custom dashed border for dropzones */
+.dashed-border-animated {
+  background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='12' ry='12' stroke='%23334155' stroke-width='3' stroke-dasharray='8%2c 12' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
+  border-radius: 12px;
+}
+
+.dark .dashed-border-animated {
+  background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='12' ry='12' stroke='%2300FF66' stroke-width='3' stroke-dasharray='8%2c 12' stroke-dashoffset='0' stroke-linecap='square'/%3e%3c/svg%3e");
 }

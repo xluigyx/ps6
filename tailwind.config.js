@@ -1,9 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   theme: {
     extend: {
       colors: {
+        theme: {
+          bg: "var(--th-bg)",
+          surface: "var(--th-surface)",
+          text: "var(--th-text)",
+          border: "var(--th-border)",
+          primary: "var(--th-primary)",
+          secondary: "var(--th-secondary)",
+          accent: "var(--th-accent)",
+          danger: "var(--th-danger)",
+          success: "var(--th-success)",
+          shadow: "var(--th-shadow)",
+        },
         cyber: {
           bg:      '#07090F',
           surface: '#0D1117',
@@ -99,3 +112,4 @@ export default {
   },
   plugins: [],
 };
+

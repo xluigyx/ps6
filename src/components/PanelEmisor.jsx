@@ -3,148 +3,131 @@ import React, { useState } from "react";
 export default function PanelEmisor({ contract, account }) {
   const [formData, setFormData] = useState({ hash: "", nombre: "", carrera: "", estudiante: "" });
   const [status, setStatus] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [txLoading, setTxLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!contract) return;
     try {
-      setLoading(true);
-      setStatus("⏳ Transmitting transaction to Blockchain Node...");
-      const hashFixed = formData.hash.startsWith("0x") ? formData.hash : "0x" + formData.hash;
-      const tx = await contract.emitirCertificado(hashFixed, formData.nombre, formData.carrera, formData.estudiante);
-      setStatus("⏳ Waiting for block confirmation...");
+      setTxLoading(true);
+      setStatus("⏳ Difundiendo transacción a los validadores de la red...");
+      const tx = await contract.emitirCertificado(
+        formData.hash.startsWith("0x") ? formData.hash : "0x" + formData.hash,
+        formData.nombre,
+        formData.carrera,
+        formData.estudiante
+      );
       await tx.wait();
-      setStatus("🚀 Certificate successfully secured on the Ledger!");
-      setFormData({ hash: "", nombre: "", carrera: "", estudiante: "" });
+      setStatus("✅ Bloque confirmado. Hash de certificado asentado de forma inmutable.");
     } catch (err) {
       console.error(err);
-      setStatus("❌ Transaction failed. Are you an Authorized Issuer?");
+      setStatus("❌ Excepción en la red: Verifique que sea una dirección autorizada.");
     } finally {
-      setLoading(false);
+      setTxLoading(false);
     }
   };
 
   return (
-    <div className="max-w-5xl">
-      <div className="mb-8">
-        <h2 className="text-3xl font-bold text-[#0B1B3D] dark:text-white tracking-tight mb-2">Issue Digital Certificate</h2>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">Cryptographically secure academic credentialing on Ethereum Testnet.</p>
-      </div>
-
-      <div className="bg-white dark:bg-[#0D111A] border border-slate-200 dark:border-[#1E293B] rounded-xl shadow-sm overflow-hidden transition-colors duration-300">
-        
-        {/* Wizard Steps (Visual Only) */}
-        <div className="border-b border-slate-200 dark:border-[#1E293B] bg-slate-50/50 dark:bg-[#0B1120] px-8 py-5 flex items-center justify-between text-sm transition-colors duration-300">
-          <div className="flex items-center gap-3 text-[#0B1B3D] dark:text-[#00FF66] font-semibold">
-            <span className="w-6 h-6 rounded-full border-2 border-[#0B1B3D] dark:border-[#00FF66] flex items-center justify-center text-xs">1</span>
-            Document Upload
-          </div>
-          <div className="h-px bg-slate-300 dark:bg-slate-700 w-16"></div>
-          <div className="flex items-center gap-3 text-slate-400 dark:text-slate-500 font-medium">
-            <span className="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-xs">2</span>
-            Student Metadata
-          </div>
-          <div className="h-px bg-slate-300 dark:bg-slate-700 w-16"></div>
-          <div className="flex items-center gap-3 text-slate-400 dark:text-slate-500 font-medium">
-            <span className="w-6 h-6 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center text-xs">3</span>
-            Review & Emit
-          </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start font-sans">
+      
+      {/* FORMULARIO DE EMISIÓN (2 TERCIOS) */}
+      <div className="lg:col-span-2 bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl">
+        <div className="mb-6">
+          <h3 className="text-base font-semibold text-white tracking-wide uppercase">Registro de Actas Académicas</h3>
+          <p className="text-xs text-slate-400 mt-1">Fase 1: Asentar hash raíz y asignar wallet del graduado</p>
         </div>
 
-        <div className="p-8">
-          {/* Drag & Drop Zone */}
-          <div 
-            onClick={() => alert("File selection dialog would open here.")}
-            className="dashed-border-animated bg-slate-50 dark:bg-[#0B1120] hover:bg-slate-100 dark:hover:bg-[#151B2B] transition-colors cursor-pointer p-12 flex flex-col items-center justify-center text-center mb-8 group"
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <label className="block text-[11px] font-mono tracking-wider text-slate-400 uppercase mb-2">Hash Criptográfico SHA-256 del PDF:</label>
+            <input
+              type="text"
+              className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 font-mono text-xs text-cyan-400 focus:outline-none focus:border-cyan-500/50 transition-all shadow-inner"
+              placeholder="0x4fa2c3..."
+              required
+              onChange={(e) => setFormData({ ...formData, hash: e.target.value })}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-mono tracking-wider text-slate-400 uppercase mb-2">Nombre del Estudiante:</label>
+              <input
+                type="text"
+                className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/50 transition-all"
+                required
+                onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-mono tracking-wider text-slate-400 uppercase mb-2">Carrera / Programa:</label>
+              <input
+                type="text"
+                className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-cyan-500/50 transition-all"
+                required
+                onChange={(e) => setFormData({ ...formData, carrera: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-mono tracking-wider text-slate-400 uppercase mb-2">Dirección Destinataria (Wallet Alumno):</label>
+            <input
+              type="text"
+              className="w-full bg-slate-950/50 border border-white/10 rounded-xl p-3 font-mono text-xs text-slate-300 focus:outline-none focus:border-cyan-500/50 transition-all shadow-inner"
+              placeholder="0x0000..."
+              required
+              onChange={(e) => setFormData({ ...formData, estudiante: e.target.value })}
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={txLoading}
+            className="w-full mt-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold uppercase text-xs tracking-wider p-3.5 rounded-xl transition-all shadow-[0_4px_20px_rgba(6,182,212,0.15)] disabled:opacity-50"
           >
-            <div className="w-12 h-12 bg-[#0B1B3D] dark:bg-transparent dark:border dark:border-[#00FF66] rounded-lg text-white dark:text-[#00FF66] flex items-center justify-center mb-4 group-hover:scale-105 dark:group-hover:shadow-[0_0_15px_rgba(0,255,102,0.5)] transition-all">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-            </div>
-            <h3 className="text-lg font-bold text-[#0B1B3D] dark:text-white mb-1">Drag & Drop PDF Certificate</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Files are locally hashed. Your original document remains private.</p>
-            <button className="bg-[#0B1B3D] dark:bg-transparent dark:border dark:border-[#00FF66] dark:text-[#00FF66] text-white text-sm font-medium px-6 py-2.5 rounded-md hover:bg-slate-800 dark:hover:bg-[#00FF66] dark:hover:text-black transition-all">
-              Select Document
-            </button>
+            {txLoading ? "Firmando Transacción..." : "Emitir y Registrar en Ledger"}
+          </button>
+        </form>
+
+        {status && (
+          <div className="mt-5 p-3.5 bg-slate-950/60 border border-white/5 rounded-xl text-xs font-mono text-slate-300">
+            {status}
           </div>
+        )}
+      </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase mb-2">Cryptographic Hash (SHA-256)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="0x..."
-                  value={formData.hash}
-                  onChange={(e) => setFormData({ ...formData, hash: e.target.value })}
-                  className="w-full border border-slate-300 dark:border-[#1E293B] rounded-md p-3 text-sm focus:outline-none focus:border-[#0B1B3D] dark:focus:border-[#00FF66] focus:ring-1 focus:ring-[#0B1B3D] dark:focus:ring-[#00FF66] font-mono bg-slate-50 dark:bg-[#151B2B] dark:text-[#00FF66] transition-colors"
-                />
-              </div>
+      {/* METRICAS DEL NODO LATERAL (1 TERCIO) */}
+      <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 shadow-2xl space-y-6">
+        <div>
+          <h4 className="text-xs font-bold uppercase text-slate-300 tracking-wider">Estado de la Infraestructura</h4>
+          <div className="h-px bg-white/10 mt-2" />
+        </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase mb-2">Student Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Mateo Villegas Ruiz"
-                  value={formData.nombre}
-                  onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
-                  className="w-full border border-slate-300 dark:border-[#1E293B] rounded-md p-3 text-sm focus:outline-none focus:border-[#0B1B3D] dark:focus:border-[#00FF66] focus:ring-1 focus:ring-[#0B1B3D] dark:focus:ring-[#00FF66] bg-slate-50 dark:bg-[#151B2B] dark:text-white transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase mb-2">Academic Program</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. B.Sc. Computer Science"
-                  value={formData.carrera}
-                  onChange={(e) => setFormData({ ...formData, carrera: e.target.value })}
-                  className="w-full border border-slate-300 dark:border-[#1E293B] rounded-md p-3 text-sm focus:outline-none focus:border-[#0B1B3D] dark:focus:border-[#00FF66] focus:ring-1 focus:ring-[#0B1B3D] dark:focus:ring-[#00FF66] bg-slate-50 dark:bg-[#151B2B] dark:text-white transition-colors"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-400 uppercase mb-2">Destination Wallet (Student)</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="0x..."
-                  value={formData.estudiante}
-                  onChange={(e) => setFormData({ ...formData, estudiante: e.target.value })}
-                  className="w-full border border-slate-300 dark:border-[#1E293B] rounded-md p-3 text-sm focus:outline-none focus:border-[#0B1B3D] dark:focus:border-[#00FF66] focus:ring-1 focus:ring-[#0B1B3D] dark:focus:ring-[#00FF66] font-mono bg-slate-50 dark:bg-[#151B2B] dark:text-[#00FF66] transition-colors"
-                />
-              </div>
+        <div className="space-y-4 text-xs font-mono">
+          <div className="flex justify-between items-center p-3 bg-slate-950/30 border border-white/5 rounded-xl">
+            <span className="text-slate-400">Tipo de Consenso</span>
+            <span className="text-cyan-400 font-bold">Proof-of-Stake (PoS)</span>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-slate-950/30 border border-white/5 rounded-xl">
+            <span className="text-slate-400">Estado de Sincronía</span>
+            <div className="flex items-center gap-1.5">
+              <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              <span className="text-slate-200">Online</span>
             </div>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-slate-950/30 border border-white/5 rounded-xl">
+            <span className="text-slate-400">Gas Base Estimado</span>
+            <span className="text-slate-300">21 Gwei</span>
+          </div>
+        </div>
 
-            <div className="pt-6 border-t border-slate-200 dark:border-[#1E293B] flex justify-end gap-3 mt-8">
-              <button
-                type="button"
-                onClick={() => { setFormData({ hash: "", nombre: "", carrera: "", estudiante: "" }); setStatus(""); }}
-                className="text-slate-600 dark:text-slate-400 text-sm font-medium px-6 py-2.5 hover:text-[#0B1B3D] dark:hover:text-white transition-colors"
-              >
-                Clear
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="bg-[#0B1B3D] dark:bg-transparent dark:border dark:border-[#00FF66] dark:text-[#00FF66] hover:bg-slate-800 dark:hover:bg-[#00FF66] dark:hover:text-black text-white text-sm font-semibold px-6 py-2.5 rounded-md transition-all shadow-sm dark:shadow-[0_0_10px_rgba(0,255,102,0.2)] flex items-center gap-2 disabled:opacity-50"
-              >
-                {loading ? "Processing..." : "Next"}
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              </button>
-            </div>
-          </form>
-
-          {status && (
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-[#00FF66]/10 border border-blue-200 dark:border-[#00FF66]/50 rounded-md text-blue-800 dark:text-[#00FF66] text-sm font-medium">
-              {status}
-            </div>
-          )}
+        <div className="p-4 border border-dashed border-white/10 rounded-xl text-center bg-slate-950/20">
+          <div className="text-2xl mb-1">📄</div>
+          <p className="text-[10px] text-slate-400 uppercase font-mono">Visor criptográfico del cliente activo</p>
         </div>
       </div>
+
     </div>
   );
 }

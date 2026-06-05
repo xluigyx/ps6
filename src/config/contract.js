@@ -1,194 +1,50 @@
-// ABI del contrato AcademicCertificates v2
-// Solidity ^0.8.20 — Máquina de estados de doble firma
-
 export const CONTRACT_ABI = [
-  // Constructor
-  { "inputs": [{ "name": "_nombreOwner", "type": "string" }], "stateMutability": "nonpayable", "type": "constructor" },
-
-  // ── Eventos ────────────────────────────────────────────────
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true,  "name": "idCertificado",    "type": "bytes32" },
-      { "indexed": true,  "name": "emisor",           "type": "address" },
-      { "indexed": true,  "name": "estudiante",       "type": "address" },
-      { "indexed": false, "name": "nombreEstudiante", "type": "string"  },
-      { "indexed": false, "name": "carrera",          "type": "string"  },
-      { "indexed": false, "name": "timestamp",        "type": "uint64"  }
-    ],
-    "name": "LogCertificadoEmitido", "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true,  "name": "idCertificado", "type": "bytes32" },
-      { "indexed": true,  "name": "estudiante",    "type": "address" },
-      { "indexed": false, "name": "timestamp",     "type": "uint64"  }
-    ],
-    "name": "LogRecepcionFirmada", "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true,  "name": "idCertificado", "type": "bytes32" },
-      { "indexed": true,  "name": "revokedBy",     "type": "address" },
-      { "indexed": false, "name": "motivo",        "type": "string"  },
-      { "indexed": false, "name": "timestamp",     "type": "uint64"  }
-    ],
-    "name": "LogCertificadoRevocado", "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true,  "name": "emisor", "type": "address" },
-      { "indexed": false, "name": "rol",    "type": "uint8"   },
-      { "indexed": false, "name": "nombre", "type": "string"  },
-      { "indexed": true,  "name": "por",    "type": "address" }
-    ],
-    "name": "LogEmisorAutorizado", "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      { "indexed": true, "name": "emisor", "type": "address" },
-      { "indexed": true, "name": "por",    "type": "address" }
-    ],
-    "name": "LogEmisorDesautorizado", "type": "event"
-  },
-
-  // ── Funciones de escritura ─────────────────────────────────
   {
     "inputs": [
-      { "name": "_idCertificado",    "type": "bytes32" },
-      { "name": "_nombreEstudiante", "type": "string"  },
-      { "name": "_carrera",          "type": "string"  },
-      { "name": "_universidad",      "type": "string"  },
-      { "name": "_estudiante",       "type": "address" }
+      { "name": "_hashPDF", "type": "bytes32" },
+      { "name": "_nombre", "type": "string" },
+      { "name": "_carrera", "type": "string" },
+      { "name": "_estudiante", "type": "address" }
     ],
-    "name": "emitirCertificado", "outputs": [], "stateMutability": "nonpayable", "type": "function"
-  },
-  {
-    "inputs": [{ "name": "_idCertificado", "type": "bytes32" }],
-    "name": "firmarRecepcion", "outputs": [], "stateMutability": "nonpayable", "type": "function"
+    "name": "emitirCertificado",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [
-      { "name": "_idCertificado", "type": "bytes32" },
-      { "name": "_motivo",        "type": "string"  }
+      { "name": "_hashPDF", "type": "bytes32" }
     ],
-    "name": "revocarCertificado", "outputs": [], "stateMutability": "nonpayable", "type": "function"
+    "name": "firmarRecepcion",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   },
   {
     "inputs": [
-      { "name": "_emisor", "type": "address" },
-      { "name": "_rol",    "type": "uint8"   },
-      { "name": "_nombre", "type": "string"  }
+      { "name": "_hashPDF", "type": "bytes32" }
     ],
-    "name": "autorizarEmisor", "outputs": [], "stateMutability": "nonpayable", "type": "function"
-  },
-  {
-    "inputs": [{ "name": "_emisor", "type": "address" }],
-    "name": "desautorizarEmisor", "outputs": [], "stateMutability": "nonpayable", "type": "function"
-  },
-
-  // ── Funciones de lectura (view) ────────────────────────────
-  {
-    "inputs": [{ "name": "_idCertificado", "type": "bytes32" }],
     "name": "verificarCertificado",
     "outputs": [
       {
         "components": [
-          { "name": "idCertificado",       "type": "bytes32" },
-          { "name": "nombreEstudiante",    "type": "string"  },
-          { "name": "carrera",             "type": "string"  },
-          { "name": "universidad",         "type": "string"  },
-          { "name": "emisor",              "type": "address" },
-          { "name": "estudiante",          "type": "address" },
-          { "name": "estado",              "type": "uint8"   },
-          { "name": "timestampEmision",    "type": "uint64"  },
-          { "name": "timestampRecepcion",  "type": "uint64"  },
-          { "name": "timestampRevocacion", "type": "uint64"  },
-          { "name": "motivoRevocacion",    "type": "string"  }
+          { "name": "id", "type": "bytes32" },
+          { "name": "nombreEstudiante", "type": "string" },
+          { "name": "carrera", "type": "string" },
+          { "name": "fechaEmision", "type": "uint256" },
+          { "name": "fechaRecepcion", "type": "uint256" },
+          { "name": "emisor", "type": "address" },
+          { "name": "estudiante", "type": "address" },
+          { "name": "estado", "type": "uint8" },
+          { "name": "motivoRevocacion", "type": "string" }
         ],
-        "name": "cert", "type": "tuple"
-      },
-      { "name": "existe", "type": "bool" }
-    ],
-    "stateMutability": "view", "type": "function"
-  },
-  {
-    "inputs": [{ "name": "_desde", "type": "uint256" }, { "name": "_hasta", "type": "uint256" }],
-    "name": "consultarHistorial",
-    "outputs": [{ "name": "ids", "type": "bytes32[]" }, { "name": "total", "type": "uint256" }],
-    "stateMutability": "view", "type": "function"
-  },
-  {
-    "inputs": [{ "name": "_emisor", "type": "address" }],
-    "name": "consultarPorEmisor",
-    "outputs": [{ "name": "", "type": "bytes32[]" }],
-    "stateMutability": "view", "type": "function"
-  },
-  {
-    "inputs": [{ "name": "_estudiante", "type": "address" }],
-    "name": "consultarPorEstudiante",
-    "outputs": [{ "name": "", "type": "bytes32[]" }],
-    "stateMutability": "view", "type": "function"
-  },
-  {
-    "inputs": [{ "name": "_emisor", "type": "address" }],
-    "name": "consultarEmisor",
-    "outputs": [
-      {
-        "components": [
-          { "name": "rol",               "type": "uint8"  },
-          { "name": "nombre",            "type": "string" },
-          { "name": "activo",            "type": "bool"   },
-          { "name": "fechaAutorizacion", "type": "uint64" }
-        ],
-        "name": "", "type": "tuple"
+        "name": "",
+        "type": "tuple"
       }
     ],
-    "stateMutability": "view", "type": "function"
-  },
-  {
-    "inputs": [{ "name": "_emisor", "type": "address" }],
-    "name": "esEmisorActivo",
-    "outputs": [{ "name": "", "type": "bool" }],
-    "stateMutability": "view", "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "totalCertificados",
-    "outputs": [{ "name": "", "type": "uint256" }],
-    "stateMutability": "view", "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "owner",
-    "outputs": [{ "name": "", "type": "address" }],
-    "stateMutability": "view", "type": "function"
+    "stateMutability": "view",
+    "type": "function"
   }
 ];
 
-// ─── Dirección del contrato ────────────────────────────────
-export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS
-  || '0x0000000000000000000000000000000000000000';
-
-// ─── Redes soportadas ─────────────────────────────────────
-export const NETWORKS = {
-  11155111: { name: 'Sepolia Testnet', symbol: 'ETH', explorer: 'https://sepolia.etherscan.io',  color: '#CFB2FF' },
-  31337:    { name: 'Hardhat Local',   symbol: 'ETH', explorer: 'http://localhost:8545',          color: '#FFE600' },
-  1:        { name: 'Ethereum Mainnet',symbol: 'ETH', explorer: 'https://etherscan.io',           color: '#627EEA' },
-};
-
-// ─── Etiquetas de Rol ──────────────────────────────────────
-export const ROL_LABELS = { 0: 'Sin Rol', 1: 'Rector', 2: 'Director de Carrera' };
-
-// ─── Máquina de estados del certificado ───────────────────
-export const ESTADO = { PENDIENTE: 0, RECIBIDO: 1, REVOCADO: 2 };
-
-export const ESTADO_META = {
-  0: { label: 'Pendiente Recepción', short: 'PENDIENTE', color: 'yellow',  icon: '⏳' },
-  1: { label: 'Recibido',            short: 'RECIBIDO',  color: 'lime',    icon: '✓'  },
-  2: { label: 'Revocado',            short: 'REVOCADO',  color: 'red',     icon: '⊘'  },
-};
+export const CONTRACT_ADDRESS = import.meta.env.VITE_CONTRACT_ADDRESS || '0x0000000000000000000000000000000000000000';

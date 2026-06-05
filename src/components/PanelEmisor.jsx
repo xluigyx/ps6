@@ -2,396 +2,371 @@ import { useRef, useState, useCallback } from 'react';
 import { useWeb3 } from '../hooks/useWeb3';
 import toast from 'react-hot-toast';
 
-// ─── Estados del proceso de emisión ──────────────────────
-const ESTADOS = { IDLE: 'idle', DRAG: 'drag', HASHING: 'hashing', LISTO: 'listo', SIGNING: 'signing', CONFIRMED: 'confirmed', ERROR: 'error' };
+const S = { IDLE:'idle', DRAG:'drag', HASHING:'hashing', READY:'ready', SIGNING:'signing', DONE:'done', ERROR:'error' };
+
+// ── Widget de paso del flujo ───────────────────────────────
+function StepFlow({ current }) {
+  const steps = [
+    { n:'01', label:'Subir PDF',       state: current >= 1 ? 'done' : 'active' },
+    { n:'02', label:'Hash SHA-256',    state: current >= 2 ? 'done' : current === 1 ? 'active' : 'inactive' },
+    { n:'03', label:'Datos del Cert.', state: current >= 3 ? 'done' : current === 2 ? 'active' : 'inactive' },
+    { n:'04', label:'Firmar con MM',   state: current >= 4 ? 'done' : current === 3 ? 'active' : 'inactive' },
+    { n:'05', label:'On-Chain ✓',      state: current >= 5 ? 'done' : 'inactive' },
+  ];
+  return (
+    <div className="flex items-center gap-0 w-full">
+      {steps.map((s, i) => (
+        <div key={i} className="flex items-center flex-1">
+          <div className={`flex flex-col items-center gap-1 flex-shrink-0 ${
+            s.state === 'done'     ? 'step-done' :
+            s.state === 'active'   ? 'step-active' : ''}`}>
+            <div className={`w-8 h-8 border-2 flex items-center justify-center text-xs font-mono font-bold ${
+              s.state === 'done'   ? 'border-cyber-lime text-cyber-lime bg-cyber-lime/10' :
+              s.state === 'active' ? 'border-cyber-cyan text-cyber-cyan bg-cyber-cyan/10' :
+                                     'border-cyber-dim text-cyber-muted'}`}>
+              {s.state === 'done' ? '✓' : s.n}
+            </div>
+          </div>
+          {i < steps.length - 1 && (
+            <div className={`flex-1 h-0.5 mx-1 ${s.state === 'done' ? 'bg-cyber-lime' : 'bg-cyber-dim'}`}></div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function PanelEmisor() {
-  const { isConnected, connect, calcularHashPDF, emitirCertificado, account, rolInfo, gasPrice, network, chainId } = useWeb3();
-  const dropRef   = useRef(null);
-  const inputRef  = useRef(null);
+  const { isConnected, connect, calcularHashPDF, emitirCertificado,
+          account, rolInfo, gasPrice, network, chainId } = useWeb3();
+  const dropRef  = useRef(null);
+  const inputRef = useRef(null);
 
-  const [estado,    setEstado]    = useState(ESTADOS.IDLE);
-  const [archivo,   setArchivo]   = useState(null);
-  const [hashParcial, setHashParcial] = useState('');
-  const [hashFinal, setHashFinal] = useState('');
-  const [hashProgress, setHashProgress] = useState(0);
-  const [form,      setForm]      = useState({ nombre: '', carrera: '', universidad: 'Universidad del Valle' });
-  const [txHash,    setTxHash]    = useState('');
-  const [errorMsg,  setErrorMsg]  = useState('');
+  const [estado,      setEstado]      = useState(S.IDLE);
+  const [archivo,     setArchivo]     = useState(null);
+  const [hashChars,   setHashChars]   = useState('');
+  const [hashProgress,setHashProgress]= useState(0);
+  const [hashFinal,   setHashFinal]   = useState('');
+  const [form,        setForm]        = useState({
+    nombre: '', carrera: '', universidad: 'Universidad del Valle', estudiante: ''
+  });
+  const [txHash, setTxHash] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
-  // ── Animación de construcción del hash ─────────────────
-  const animarHash = useCallback(async (hashReal) => {
-    const chars = '0123456789abcdef';
-    for (let i = 0; i < hashReal.length; i++) {
-      await new Promise(r => setTimeout(r, 18));
-      setHashParcial(hashReal.slice(0, i + 1) + chars[Math.floor(Math.random() * 16)].repeat(hashReal.length - i - 1));
-      setHashProgress(Math.round(((i + 1) / hashReal.length) * 100));
+  const stepNum = { idle:0, drag:0, hashing:1, ready:2, signing:3, done:4, error:0 }[estado] || 0;
+  const explorerUrl = network?.explorer || 'https://sepolia.etherscan.io';
+
+  // ── Animación SHA-256 carácter a carácter ───────────────
+  const animHash = useCallback(async (real) => {
+    const hex = '0123456789abcdef';
+    for (let i = 2; i <= real.length; i++) {
+      await new Promise(r => setTimeout(r, 14));
+      const noise = Array.from({ length: real.length - i }, () => hex[Math.floor(Math.random()*16)]).join('');
+      setHashChars(real.slice(0, i) + noise);
+      setHashProgress(Math.round(((i - 2) / (real.length - 2)) * 100));
     }
-    setHashParcial(hashReal);
+    setHashChars(real);
+    setHashProgress(100);
   }, []);
 
-  // ── Procesar archivo ───────────────────────────────────
+  // ── Procesar archivo ─────────────────────────────────────
   const procesarArchivo = useCallback(async (file) => {
-    if (file.type !== 'application/pdf') {
-      toast.error('Solo se aceptan archivos PDF');
-      return;
-    }
+    if (file.type !== 'application/pdf') { toast.error('Solo archivos PDF'); return; }
     setArchivo(file);
-    setEstado(ESTADOS.HASHING);
+    setEstado(S.HASHING);
     setHashProgress(0);
     try {
-      const hash = await calcularHashPDF(file);
-      await animarHash(hash);
-      setHashFinal(hash);
-      setEstado(ESTADOS.LISTO);
-      toast.success('Hash SHA-256 calculado correctamente');
-    } catch (err) {
-      setEstado(ESTADOS.ERROR);
-      setErrorMsg('Error calculando hash: ' + err.message);
+      const h = await calcularHashPDF(file);
+      await animHash(h);
+      setHashFinal(h);
+      setEstado(S.READY);
+    } catch (e) {
+      setEstado(S.ERROR);
+      setErrorMsg(e.message);
     }
-  }, [calcularHashPDF, animarHash]);
+  }, [calcularHashPDF, animHash]);
 
-  // ── Drag & Drop handlers ───────────────────────────────
-  const onDragOver  = (e) => { e.preventDefault(); setEstado(s => s === ESTADOS.IDLE ? ESTADOS.DRAG : s); };
-  const onDragLeave = ()  => { setEstado(s => s === ESTADOS.DRAG ? ESTADOS.IDLE : s); };
   const onDrop      = (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) procesarArchivo(f); };
-  const onFileInput = (e) => { const f = e.target.files[0]; if (f) procesarArchivo(f); };
+  const onDragOver  = (e) => { e.preventDefault(); setEstado(s => s === S.IDLE ? S.DRAG : s); };
+  const onDragLeave = ()  => { setEstado(s => s === S.DRAG ? S.IDLE : s); };
+  const onFile      = (e) => { const f = e.target.files[0]; if (f) procesarArchivo(f); };
 
-  // ── Emitir en blockchain ───────────────────────────────
+  // ── Emitir on-chain ──────────────────────────────────────
   const handleEmitir = async () => {
-    if (!form.nombre || !form.carrera || !form.universidad) {
-      toast.error('Completa todos los campos del estudiante');
-      return;
+    if (!form.nombre || !form.carrera || !form.estudiante) {
+      toast.error('Completa todos los campos obligatorios'); return;
     }
-    setEstado(ESTADOS.SIGNING);
+    if (!/^0x[a-fA-F0-9]{40}$/.test(form.estudiante)) {
+      toast.error('Dirección del estudiante inválida (debe ser 0x…)'); return;
+    }
+    setEstado(S.SIGNING);
     try {
-      const receipt = await emitirCertificado({
-        hashId:     hashFinal,
-        nombre:     form.nombre,
-        carrera:    form.carrera,
-        universidad: form.universidad,
+      const r = await emitirCertificado({
+        hashId: hashFinal, nombre: form.nombre,
+        carrera: form.carrera, universidad: form.universidad,
+        estudiante: form.estudiante,
       });
-      setTxHash(receipt.hash);
-      setEstado(ESTADOS.CONFIRMED);
-      toast.success('¡Certificado emitido en la blockchain!');
-    } catch (err) {
-      const msg = err?.reason || err?.shortMessage || err.message || 'Error desconocido';
-      setEstado(ESTADOS.ERROR);
+      setTxHash(r.hash);
+      setEstado(S.DONE);
+      toast.success('¡Certificado emitido! El estudiante debe firmar la recepción.');
+    } catch (e) {
+      const msg = e?.reason || e?.shortMessage || e.message || 'Error desconocido';
+      setEstado(S.ERROR);
       setErrorMsg(msg);
-      toast.error('Error al emitir: ' + msg);
+      toast.error(msg);
     }
   };
 
-  // ── Reset ──────────────────────────────────────────────
   const reset = () => {
-    setEstado(ESTADOS.IDLE); setArchivo(null);
-    setHashParcial(''); setHashFinal(''); setHashProgress(0);
-    setTxHash(''); setErrorMsg('');
+    setEstado(S.IDLE); setArchivo(null); setHashChars(''); setHashFinal('');
+    setHashProgress(0); setTxHash(''); setErrorMsg('');
+    setForm({ nombre:'', carrera:'', universidad:'Universidad del Valle', estudiante:'' });
     if (inputRef.current) inputRef.current.value = '';
   };
 
-  const dropZoneClass = {
-    [ESTADOS.IDLE]:      'drop-zone-idle',
-    [ESTADOS.DRAG]:      'drop-zone-hover',
-    [ESTADOS.HASHING]:   'drop-zone-processing',
-    [ESTADOS.LISTO]:     'drop-zone-done',
-    [ESTADOS.SIGNING]:   'drop-zone-processing',
-    [ESTADOS.CONFIRMED]: 'drop-zone-done',
-    [ESTADOS.ERROR]:     'border-2 border-cyber-red shadow-neon-red',
-  }[estado] || 'drop-zone-idle';
+  const dropClass = {
+    [S.IDLE]:'drop-idle', [S.DRAG]:'drop-hover', [S.HASHING]:'drop-processing',
+    [S.READY]:'drop-done', [S.SIGNING]:'drop-processing', [S.DONE]:'drop-done', [S.ERROR]:'drop-error',
+  }[estado];
 
-  const shortAddr = account ? `${account.slice(0,6)}...${account.slice(-4)}` : '—';
-  const explorerUrl = network?.explorer || 'https://sepolia.etherscan.io';
+  if (!isConnected) return (
+    <div className="flex flex-col items-center justify-center py-24 gap-6 animate-fade-in">
+      <div className="nb-card-cyan p-10 text-center max-w-sm w-full">
+        <div className="text-5xl mb-4 animate-bounce-soft">🦊</div>
+        <h2 className="font-display font-black text-cyber-cyan text-xl mb-2">PANEL DEL EMISOR</h2>
+        <p className="font-mono text-xs text-cyber-muted mb-6">Rector · Director de Carrera</p>
+        <p className="text-sm text-cyber-text mb-6">Conecta tu wallet autorizada para emitir certificados académicos.</p>
+        <button onClick={connect} className="nb-btn-cyan w-full justify-center">
+          Conectar MetaMask →
+        </button>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-fade-in">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 animate-fade-in">
 
-      {/* ── Columna izquierda: Info emisor ─────────────────── */}
+      {/* ── Columna izquierda ─────────────────────────────── */}
       <div className="space-y-4">
 
-        {/* Info del emisor */}
-        <div className="cyber-card">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-cyber-cyan text-lg">◈</span>
-            <h2 className="font-display font-semibold text-cyber-text">Emisor Activo</h2>
+        {/* Emisor info */}
+        <div className="nb-card-cyan">
+          <div className="flex items-center gap-2 mb-4 border-b-2 border-cyber-dim pb-3">
+            <span className="text-cyber-cyan font-mono font-bold text-lg">◈</span>
+            <span className="font-display font-black text-cyber-cyan text-sm uppercase tracking-wider">Emisor Activo</span>
           </div>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-cyber-muted font-mono">DIRECCIÓN</span>
-              <span className="font-mono text-xs text-cyber-cyan">{shortAddr}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-cyber-muted font-mono">ROL</span>
-              <span className={`font-mono text-xs font-semibold ${rolInfo?.activo ? 'text-cyber-lime' : 'text-cyber-red'}`}>
-                {rolInfo?.activo ? (rolInfo.rol === 1 ? 'Rector' : 'Dir. Carrera') : 'Sin permisos'}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-cyber-muted font-mono">NOMBRE</span>
-              <span className="font-mono text-xs text-cyber-text">{rolInfo?.nombre || '—'}</span>
-            </div>
-            <div className="cyber-divider"></div>
-            <div className="flex justify-between items-center">
-              <span className="text-xs text-cyber-muted font-mono">ESTADO</span>
-              {rolInfo?.activo ? (
-                <span className="badge-valid"><span className="status-dot online"></span>Autorizado</span>
-              ) : (
-                <span className="badge-revoked"><span className="status-dot offline"></span>Sin acceso</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Gas Tracker */}
-        <div className="cyber-card">
-          <div className="flex items-center gap-2 mb-4">
-            <span className="text-cyber-yellow text-lg">⛽</span>
-            <h2 className="font-display font-semibold text-cyber-text">Gas Tracker</h2>
-          </div>
-          <div className="space-y-3">
-            <div>
-              <div className="flex justify-between mb-1">
-                <span className="font-mono text-xs text-cyber-muted">Precio base</span>
-                <span className="font-mono text-sm font-bold text-cyber-yellow">{gasPrice || '—'} Gwei</span>
-              </div>
-              <div className="w-full h-1.5 bg-cyber-border rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-cyber-lime to-cyber-yellow transition-all duration-500"
-                  style={{ width: `${Math.min((parseFloat(gasPrice || 0) / 50) * 100, 100)}%` }}
-                ></div>
-              </div>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-mono text-xs text-cyber-muted">Est. costo tx</span>
-              <span className="font-mono text-xs text-cyber-text">~0.001 ETH</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-mono text-xs text-cyber-muted">Red</span>
-              <span className="font-mono text-xs text-cyber-cyan">{network?.name || 'No conectado'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="font-mono text-xs text-cyber-muted">Chain ID</span>
-              <span className="font-mono text-xs text-cyber-purple">{chainId || '—'}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Estadísticas rápidas */}
-        <div className="cyber-card">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-cyber-purple text-lg">⬢</span>
-            <h2 className="font-display font-semibold text-cyber-text">Sesión Actual</h2>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2 font-mono text-xs">
             {[
-              { label: 'TX FIRMADAS', value: '0', color: 'text-cyber-cyan' },
-              { label: 'GAS USADO',   value: '0',  color: 'text-cyber-yellow' },
-            ].map((s) => (
-              <div key={s.label} className="bg-cyber-bg rounded-lg p-3 border border-cyber-border text-center">
-                <div className={`neon-number text-xl ${s.color}`}>{s.value}</div>
-                <div className="font-mono text-[9px] text-cyber-muted mt-1">{s.label}</div>
+              ['WALLET',  account ? `${account.slice(0,10)}…${account.slice(-6)}` : '—', 'text-cyber-cyan'],
+              ['ROL',     rolInfo?.activo ? (rolInfo.rol===1?'Rector':'Dir. Carrera') : 'Sin permisos', rolInfo?.activo?'text-cyber-lime':'text-cyber-red'],
+              ['NOMBRE',  rolInfo?.nombre || '—', 'text-cyber-text'],
+              ['ESTADO',  rolInfo?.activo ? '● AUTORIZADO' : '○ SIN ACCESO', rolInfo?.activo?'text-cyber-lime':'text-cyber-red'],
+            ].map(([k,v,c]) => (
+              <div key={k} className="flex justify-between gap-2">
+                <span className="text-cyber-muted">{k}</span>
+                <span className={c}>{v}</span>
               </div>
             ))}
           </div>
         </div>
+
+        {/* Gas tracker */}
+        <div className="nb-card-yellow">
+          <div className="flex items-center gap-2 mb-3 border-b-2 border-cyber-dim pb-3">
+            <span className="text-xl">⛽</span>
+            <span className="font-display font-black text-cyber-yellow text-sm uppercase tracking-wider">Gas Tracker</span>
+          </div>
+          <div className="space-y-2 font-mono text-xs">
+            <div className="flex justify-between">
+              <span className="text-cyber-muted">PRECIO BASE</span>
+              <span className="text-cyber-yellow font-bold text-base">{gasPrice || '—'} Gwei</span>
+            </div>
+            <div className="w-full h-1.5 bg-cyber-dim">
+              <div className="h-full bg-cyber-yellow transition-all" style={{ width:`${Math.min((+gasPrice||0)/60*100,100)}%` }}></div>
+            </div>
+            <div className="flex justify-between"><span className="text-cyber-muted">RED</span><span className="text-cyber-text">{network?.name||'—'}</span></div>
+            <div className="flex justify-between"><span className="text-cyber-muted">CHAIN ID</span><span className="text-cyber-purple">{chainId||'—'}</span></div>
+          </div>
+        </div>
+
+        {/* Flujo de pasos */}
+        <div className="nb-card">
+          <div className="font-mono text-[10px] text-cyber-muted mb-3 uppercase tracking-wider">PROGRESO DE EMISIÓN</div>
+          <StepFlow current={stepNum} />
+          <div className="font-mono text-[10px] text-cyber-cyan mt-3 text-center">
+            {estado === S.IDLE    && 'Esperando PDF…'}
+            {estado === S.HASHING && `Calculando SHA-256… ${hashProgress}%`}
+            {estado === S.READY   && 'Hash listo · Completa los datos'}
+            {estado === S.SIGNING && 'Esperando firma en MetaMask…'}
+            {estado === S.DONE    && '✓ Emitido · Pendiente firma del estudiante'}
+            {estado === S.ERROR   && '⚠ Error — reinicia el proceso'}
+          </div>
+        </div>
       </div>
 
-      {/* ── Columna central: Zona de emisión ───────────────── */}
+      {/* ── Columna central: zona de emisión ─────────────── */}
       <div className="xl:col-span-2 space-y-4">
-        <div className="cyber-card">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <span className="text-cyber-cyan text-xl">⬡</span>
-              <h2 className="font-display font-bold text-cyber-text text-lg">Zona de Emisión</h2>
+        <div className="nb-card-cyan">
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5 pb-3 border-b-2 border-cyber-dim">
+            <div>
+              <div className="font-mono text-[10px] text-cyber-muted uppercase tracking-widest">FASE 1 DE 2</div>
+              <h2 className="font-display font-black text-cyber-cyan text-2xl">Emisión de Certificado</h2>
             </div>
-            {(estado !== ESTADOS.IDLE) && (
-              <button onClick={reset} className="btn-secondary !text-xs !py-1 !px-3">↺ Reiniciar</button>
+            {estado !== S.IDLE && (
+              <button onClick={reset} className="nb-btn-ghost !text-xs !py-1 !px-3">↺ Reset</button>
             )}
           </div>
 
-          {!isConnected ? (
-            <div className="text-center py-16">
-              <div className="text-6xl mb-4 animate-bounce-soft">🦊</div>
-              <p className="font-display text-cyber-muted mb-4">Conecta MetaMask para emitir certificados</p>
-              <button onClick={connect} className="btn-cyber">Conectar Wallet</button>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {/* Drop Zone */}
-              <div
-                ref={dropRef}
-                onDragOver={onDragOver}
-                onDragLeave={onDragLeave}
-                onDrop={onDrop}
-                onClick={() => estado === ESTADOS.IDLE && inputRef.current?.click()}
-                className={`relative rounded-xl cursor-pointer transition-all duration-300 min-h-[200px] flex flex-col items-center justify-center p-8 ${dropZoneClass}`}
-              >
-                <input ref={inputRef} type="file" accept=".pdf" onChange={onFileInput} className="hidden" />
+          {/* Drop Zone */}
+          <div
+            ref={dropRef}
+            onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
+            onClick={() => [S.IDLE,S.DRAG].includes(estado) && inputRef.current?.click()}
+            className={`relative min-h-[180px] flex flex-col items-center justify-center p-8 mb-5
+                        cursor-pointer transition-all duration-200 ${dropClass}`}
+          >
+            <input ref={inputRef} type="file" accept=".pdf" onChange={onFile} className="hidden" />
 
-                {/* IDLE */}
-                {estado === ESTADOS.IDLE && (
-                  <div className="text-center">
-                    <div className="text-5xl mb-3 animate-bounce-soft">📄</div>
-                    <p className="font-display font-semibold text-cyber-text text-lg mb-1">Arrastra el PDF aquí</p>
-                    <p className="font-mono text-xs text-cyber-muted">o haz clic para seleccionar</p>
-                    <div className="mt-4 flex gap-2 justify-center">
-                      {['PDF', 'SHA-256', 'On-Chain'].map((t) => (
-                        <span key={t} className="font-mono text-[10px] text-cyber-cyan/60 border border-cyber-cyan/20 rounded px-2 py-0.5">{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+            {(estado === S.IDLE) && (
+              <div className="text-center">
+                <div className="text-5xl mb-3 animate-bounce-soft">📄</div>
+                <p className="font-display font-bold text-cyber-text text-lg">Arrastra el PDF del Diploma</p>
+                <p className="font-mono text-xs text-cyber-muted mt-1">o haz clic · Solo archivos .pdf</p>
+              </div>
+            )}
 
-                {/* DRAG */}
-                {estado === ESTADOS.DRAG && (
-                  <div className="text-center animate-pulse">
-                    <div className="text-5xl mb-3">⬇</div>
-                    <p className="font-display font-bold text-cyber-cyan text-xl">SUELTA PARA PROCESAR</p>
-                    <p className="font-mono text-xs text-cyber-cyan/60 mt-2">Calculando SHA-256 en cliente...</p>
-                  </div>
-                )}
+            {(estado === S.DRAG) && (
+              <div className="text-center animate-pulse">
+                <div className="text-5xl mb-2">⬇</div>
+                <p className="font-display font-black text-cyber-cyan text-2xl">SUELTA AQUÍ</p>
+                <p className="font-mono text-xs text-cyber-cyan/60 mt-1">calculando SHA-256 en cliente</p>
+              </div>
+            )}
 
-                {/* HASHING */}
-                {estado === ESTADOS.HASHING && (
-                  <div className="w-full">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-5 h-5 border-2 border-cyber-yellow/30 border-t-cyber-yellow rounded-full animate-spin"></div>
-                      <span className="font-display font-semibold text-cyber-yellow">Calculando SHA-256...</span>
-                      <span className="font-mono text-xs text-cyber-yellow ml-auto">{hashProgress}%</span>
-                    </div>
-                    <div className="w-full bg-cyber-border rounded-full h-1.5 mb-4">
-                      <div
-                        className="h-1.5 bg-gradient-to-r from-cyber-yellow to-cyber-orange rounded-full transition-all duration-100"
-                        style={{ width: `${hashProgress}%` }}
-                      ></div>
-                    </div>
-                    <div className="font-mono text-xs text-cyber-yellow/80 break-all bg-cyber-bg rounded-lg p-3 border border-cyber-yellow/20 typing-cursor">
-                      {hashParcial || '0x...'}
-                    </div>
-                    <p className="font-mono text-[10px] text-cyber-muted mt-2 text-center">
-                      📄 {archivo?.name} · {(archivo?.size / 1024).toFixed(1)} KB
-                    </p>
-                  </div>
-                )}
+            {(estado === S.HASHING) && (
+              <div className="w-full">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-4 h-4 border-2 border-cyber-yellow/30 border-t-cyber-yellow rounded-full animate-spin flex-shrink-0"></div>
+                  <span className="font-mono text-xs text-cyber-yellow font-bold uppercase">Calculando SHA-256 · {hashProgress}%</span>
+                </div>
+                <div className="w-full bg-cyber-dim h-2 mb-3">
+                  <div className="h-full bg-cyber-yellow transition-all duration-75" style={{ width:`${hashProgress}%` }}></div>
+                </div>
+                <div className="hash-mono cursor-blink text-cyber-yellow/90">
+                  {hashChars || '0x...'}
+                </div>
+                <p className="font-mono text-[10px] text-cyber-muted mt-2">
+                  📄 {archivo?.name} · {(archivo?.size/1024).toFixed(1)} KB
+                </p>
+              </div>
+            )}
 
-                {/* LISTO */}
-                {estado === ESTADOS.LISTO && (
-                  <div className="w-full animate-slide-up">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-cyber-lime text-xl">✓</span>
-                      <span className="font-display font-semibold text-cyber-lime">Hash SHA-256 Calculado</span>
-                    </div>
-                    <div className="relative overflow-hidden rounded-lg border border-cyber-lime/30 bg-cyber-bg p-3">
-                      {/* Efecto scan */}
-                      <div className="absolute inset-0 overflow-hidden">
-                        <div className="absolute inset-x-0 h-12 bg-gradient-to-b from-transparent via-cyber-lime/5 to-transparent animate-scan"></div>
-                      </div>
-                      <p className="font-mono text-xs text-cyber-lime break-all relative z-10">{hashFinal}</p>
-                    </div>
-                    <p className="font-mono text-[10px] text-cyber-muted mt-2">
-                      📄 {archivo?.name} · {(archivo?.size / 1024).toFixed(1)} KB
-                    </p>
+            {(estado === S.READY) && (
+              <div className="w-full animate-slide-up">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-cyber-lime font-bold text-xl">✓</span>
+                  <span className="font-mono text-xs text-cyber-lime font-bold uppercase">SHA-256 Verificado · 100%</span>
+                </div>
+                <div className="relative overflow-hidden hash-mono text-cyber-lime border-cyber-lime bg-cyber-lime/5">
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute inset-x-0 h-8 bg-gradient-to-b from-transparent via-cyber-lime/10 to-transparent animate-scan-line"></div>
                   </div>
-                )}
+                  <span className="relative">{hashFinal}</span>
+                </div>
+                <p className="font-mono text-[10px] text-cyber-muted mt-1.5">
+                  📄 {archivo?.name} · {(archivo?.size/1024).toFixed(1)} KB
+                </p>
+              </div>
+            )}
 
-                {/* SIGNING */}
-                {estado === ESTADOS.SIGNING && (
-                  <div className="text-center">
-                    <div className="relative inline-flex mb-4">
-                      <div className="w-16 h-16 border-4 border-cyber-cyan/20 border-t-cyber-cyan rounded-full animate-spin"></div>
-                      <div className="absolute inset-0 flex items-center justify-center text-2xl">🦊</div>
-                    </div>
-                    <p className="font-display font-bold text-cyber-cyan text-lg">Firmando con MetaMask</p>
-                    <p className="font-mono text-xs text-cyber-muted mt-2">Confirma la transacción en tu wallet...</p>
-                  </div>
-                )}
+            {(estado === S.SIGNING) && (
+              <div className="text-center">
+                <div className="relative inline-flex mb-3">
+                  <div className="w-16 h-16 border-4 border-cyber-cyan/20 border-t-cyber-cyan rounded-full animate-spin"></div>
+                  <div className="absolute inset-0 flex items-center justify-center text-2xl">🦊</div>
+                </div>
+                <p className="font-display font-black text-cyber-cyan text-lg">FIRMANDO FASE 1</p>
+                <p className="font-mono text-xs text-cyber-muted mt-1">Confirma la transacción en MetaMask…</p>
+              </div>
+            )}
 
-                {/* CONFIRMED */}
-                {estado === ESTADOS.CONFIRMED && (
-                  <div className="text-center animate-slide-up">
-                    <div className="text-5xl mb-3">🎉</div>
-                    <p className="font-display font-bold text-cyber-lime text-xl mb-2">¡Certificado Emitido!</p>
-                    <p className="font-mono text-xs text-cyber-muted mb-3">Transaction hash:</p>
-                    <a
-                      href={`${explorerUrl}/tx/${txHash}`}
-                      target="_blank" rel="noreferrer"
-                      className="hash-display text-cyber-cyan hover:text-cyber-lime transition-colors"
-                    >
-                      {txHash}
-                    </a>
-                  </div>
-                )}
+            {(estado === S.DONE) && (
+              <div className="text-center animate-slide-up">
+                <div className="text-5xl mb-2">🎉</div>
+                <p className="font-display font-black text-cyber-lime text-xl mb-1">FASE 1 COMPLETADA</p>
+                <p className="font-mono text-xs text-cyber-muted mb-3">El certificado espera la firma del estudiante</p>
+                <a href={`${explorerUrl}/tx/${txHash}`} target="_blank" rel="noreferrer"
+                   className="hash-mono text-cyber-cyan hover:text-cyber-lime transition-colors block">
+                  TX: {txHash}
+                </a>
+              </div>
+            )}
 
-                {/* ERROR */}
-                {estado === ESTADOS.ERROR && (
-                  <div className="text-center">
-                    <div className="text-5xl mb-3">⚠</div>
-                    <p className="font-display font-bold text-cyber-red text-lg mb-2">Error en la Transacción</p>
-                    <p className="font-mono text-xs text-cyber-red/70 bg-cyber-red/5 rounded-lg p-3 border border-cyber-red/20">{errorMsg}</p>
-                  </div>
-                )}
+            {(estado === S.ERROR) && (
+              <div className="text-center animate-shake">
+                <div className="text-4xl mb-2">⚠</div>
+                <p className="font-display font-black text-cyber-red text-lg mb-1">ERROR</p>
+                <p className="font-mono text-xs text-cyber-red/80 bg-cyber-red/5 border border-cyber-red/30 p-2">{errorMsg}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Formulario de datos */}
+          {(estado === S.READY || estado === S.SIGNING) && (
+            <div className="space-y-4 animate-slide-up">
+              <div className="cyber-hr"></div>
+              <div className="font-mono text-[10px] text-cyber-muted uppercase tracking-widest mb-3">DATOS DEL CERTIFICADO</div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-mono text-[10px] text-cyber-muted mb-1 uppercase">NOMBRE COMPLETO *</label>
+                  <input className="nb-input" placeholder="Ana María González Pérez"
+                    value={form.nombre} onChange={e => setForm(f=>({...f, nombre:e.target.value}))} />
+                </div>
+                <div>
+                  <label className="block font-mono text-[10px] text-cyber-muted mb-1 uppercase">PROGRAMA ACADÉMICO *</label>
+                  <input className="nb-input" placeholder="Ingeniería de Sistemas"
+                    value={form.carrera} onChange={e => setForm(f=>({...f, carrera:e.target.value}))} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block font-mono text-[10px] text-cyber-muted mb-1 uppercase">INSTITUCIÓN</label>
+                  <input className="nb-input" value={form.universidad}
+                    onChange={e => setForm(f=>({...f, universidad:e.target.value}))} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block font-mono text-[10px] text-cyber-muted mb-1 uppercase">
+                    WALLET DEL ESTUDIANTE * <span className="text-cyber-cyan">(quien firmará la recepción)</span>
+                  </label>
+                  <input className="nb-input" placeholder="0x742d35Cc6634C0532925a3b8D4C2C0A4..."
+                    value={form.estudiante} onChange={e => setForm(f=>({...f, estudiante:e.target.value}))} />
+                  <p className="font-mono text-[10px] text-cyber-muted mt-1">
+                    ⚠ Esta dirección es la ÚNICA que podrá firmar la Fase 2 del certificado.
+                  </p>
+                </div>
               </div>
 
-              {/* Formulario de datos */}
-              {(estado === ESTADOS.LISTO || estado === ESTADOS.SIGNING) && (
-                <div className="space-y-4 animate-slide-up">
-                  <div className="cyber-divider"></div>
-                  <h3 className="font-display font-semibold text-cyber-text flex items-center gap-2">
-                    <span className="text-cyber-cyan">📋</span> Datos del Certificado
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block font-mono text-xs text-cyber-muted mb-1.5">NOMBRE DEL ESTUDIANTE *</label>
-                      <input
-                        className="cyber-input"
-                        placeholder="Ej: Juan Camilo Pérez García"
-                        value={form.nombre}
-                        onChange={e => setForm(f => ({ ...f, nombre: e.target.value }))}
-                      />
-                    </div>
-                    <div>
-                      <label className="block font-mono text-xs text-cyber-muted mb-1.5">PROGRAMA ACADÉMICO *</label>
-                      <input
-                        className="cyber-input"
-                        placeholder="Ej: Ingeniería de Sistemas"
-                        value={form.carrera}
-                        onChange={e => setForm(f => ({ ...f, carrera: e.target.value }))}
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block font-mono text-xs text-cyber-muted mb-1.5">INSTITUCIÓN EMISORA</label>
-                      <input
-                        className="cyber-input"
-                        value={form.universidad}
-                        onChange={e => setForm(f => ({ ...f, universidad: e.target.value }))}
-                      />
-                    </div>
-                  </div>
+              {/* Hash ID */}
+              <div>
+                <label className="block font-mono text-[10px] text-cyber-muted mb-1 uppercase">ID DEL CERTIFICADO (SHA-256)</label>
+                <div className="hash-mono">{hashFinal}</div>
+              </div>
 
-                  {/* ID del certificado */}
-                  <div>
-                    <label className="block font-mono text-xs text-cyber-muted mb-1.5">ID DEL CERTIFICADO (SHA-256)</label>
-                    <div className="hash-display">{hashFinal}</div>
-                  </div>
+              <button
+                onClick={handleEmitir}
+                disabled={estado === S.SIGNING || !rolInfo?.activo}
+                className={`nb-btn-cyan w-full justify-center text-base py-4 ${!rolInfo?.activo ? 'nb-btn-disabled' : ''}`}
+              >
+                {estado === S.SIGNING
+                  ? <><span className="w-4 h-4 border-2 border-cyber-cyan/30 border-t-cyber-cyan rounded-full animate-spin inline-block"></span> Procesando…</>
+                  : <>◈ FIRMAR FASE 1 · EMITIR EN BLOCKCHAIN</>}
+              </button>
 
-                  <button
-                    onClick={handleEmitir}
-                    disabled={estado === ESTADOS.SIGNING || !rolInfo?.activo}
-                    className="btn-cyber w-full justify-center text-base py-3"
-                  >
-                    {estado === ESTADOS.SIGNING ? (
-                      <><span className="inline-block w-4 h-4 border-2 border-cyber-cyan/30 border-t-cyber-cyan rounded-full animate-spin"></span> Procesando...</>
-                    ) : (
-                      <><span>◈</span> Firmar y Emitir en Blockchain</>
-                    )}
-                  </button>
-
-                  {!rolInfo?.activo && (
-                    <p className="font-mono text-xs text-cyber-red text-center">
-                      ⚠ Tu dirección no tiene permisos de emisión
-                    </p>
-                  )}
-                </div>
+              {!rolInfo?.activo && (
+                <p className="font-mono text-xs text-cyber-red text-center">
+                  ⚠ Tu dirección no tiene permisos de emisión en este contrato.
+                </p>
               )}
             </div>
           )}

@@ -3,6 +3,7 @@ import React, { useState } from "react";
 export default function Verificador({ contract }) {
   const [hashInput, setHashInput] = useState("");
   const [cert, setCert] = useState(null);
+  const [nft, setNft] = useState(null);
   const [status, setStatus] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,10 +54,33 @@ export default function Verificador({ contract }) {
       const data = await contract.verificarCertificado(hashFixed);
       setCert(data);
       setStatus("");
+
+      // §11: leer la representación NFT (tokenId, owner, metadatos on-chain decodificados)
+      try {
+        const tokenId = await contract.tokenPorHash(hashFixed);
+        if (tokenId && tokenId > 0n) {
+          const [owner, uri] = await Promise.all([
+            contract.ownerOf(tokenId),
+            contract.tokenURI(tokenId),
+          ]);
+          let metadata = null;
+          const marca = "base64,";
+          if (uri.includes(marca)) {
+            try { metadata = JSON.parse(atob(uri.split(marca)[1])); } catch { metadata = null; }
+          }
+          setNft({ tokenId: tokenId.toString(), owner, metadata });
+        } else {
+          setNft(null);
+        }
+      } catch (e) {
+        console.error("No se pudo leer el NFT:", e);
+        setNft(null);
+      }
     } catch (err) {
       console.error(err);
       setStatus("❌ Alerta: El hash ingresado no coincide con ningún bloque minado en la red.");
       setCert(null);
+      setNft(null);
     } finally {
       setLoading(false);
     }
@@ -128,8 +152,15 @@ export default function Verificador({ contract }) {
                   </div>
                </div>
                
-               <h4 className="text-amber-400 font-sans font-bold uppercase tracking-wider text-sm mb-6 border-b border-amber-500/20 pb-2 inline-block">Trazabilidad Criptográfica Aprobada</h4>
-               
+               <h4 className="text-amber-400 font-sans font-bold uppercase tracking-wider text-sm mb-4 border-b border-amber-500/20 pb-2 inline-block">Trazabilidad Criptográfica Aprobada</h4>
+
+               {cert.codigo && (
+                 <div className="mb-6">
+                   <span className="text-slate-400 text-[10px] uppercase block mb-1">Código / Folio del Certificado</span>
+                   <span className="font-mono text-sm text-amber-400 font-bold">{cert.codigo}</span>
+                 </div>
+               )}
+
                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div>
                     <span className="text-slate-400 text-[10px] uppercase block mb-1">Titular Académico</span>
@@ -177,6 +208,43 @@ export default function Verificador({ contract }) {
                   <span className="text-slate-400">{cert.motivoRevocacion}</span>
                 </div>
              </div>
+          )}
+
+          {/* §11 — Representación NFT ERC-721 soulbound del certificado */}
+          {nft && (
+            <div className="mt-6 p-5 rounded-xl bg-gradient-to-br from-violet-500/10 to-fuchsia-600/5 border border-violet-500/30 font-mono text-xs shadow-[0_0_25px_rgba(139,92,246,0.12)]">
+              <div className="flex items-center justify-between mb-4 border-b border-violet-500/20 pb-2">
+                <h4 className="text-violet-300 font-sans font-bold uppercase tracking-wider text-sm flex items-center gap-2">
+                  <span>🎖️</span> Certificado tokenizado (NFT)
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] uppercase font-bold bg-violet-500/15 text-violet-300 border border-violet-500/30">
+                  Soulbound · Intransferible
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <span className="text-slate-500 text-[9px] uppercase block mb-1">Token ID</span>
+                  <span className="text-violet-300 font-bold">#{nft.tokenId}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 text-[9px] uppercase block mb-1">Propietario (ownerOf)</span>
+                  <span className="text-slate-300 break-all">{nft.owner}</span>
+                </div>
+                {nft.metadata && (
+                  <>
+                    <div>
+                      <span className="text-slate-500 text-[9px] uppercase block mb-1">Estado en metadatos on-chain</span>
+                      <span className="text-slate-200">{nft.metadata.attributes?.find(a => a.trait_type === "Estado")?.value || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-[9px] uppercase block mb-1">Universidad</span>
+                      <span className="text-slate-200">{nft.metadata.attributes?.find(a => a.trait_type === "Universidad")?.value || "—"}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+              <p className="text-[10px] text-slate-500 mt-3">Metadatos generados 100% on-chain (data:application/json;base64), sin IPFS ni servidores externos.</p>
+            </div>
           )}
         </div>
       )}

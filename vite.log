@@ -1,0 +1,18 @@
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m502[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5199[22m/[39m
+[2m  [32m➜[39m  [1mNetwork[22m[2m: use [22m[1m--host[22m[2m to expose[22m
+[2m6:48:52 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/components/ExplorerHistorial.jsx[22m
+[2m6:49:14 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/components/ExplorerHistorial.jsx[22m
+[2m6:49:56 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/PanelEmisor.jsx, /src/index.css[22m
+[2m6:50:13 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/PanelEmisor.jsx, /src/index.css[22m
+[2m6:50:42 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/PanelEmisor.jsx, /src/index.css[22m
+[2m6:51:02 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/PanelEmisor.jsx, /src/index.css[22m
+[2m6:51:18 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/PanelEmisor.jsx, /src/index.css[22m
+[2m6:51:37 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/PanelEmisor.jsx, /src/index.css[22m
+[2m6:54:06 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/Verificador.jsx, /src/index.css[22m
+[2m6:55:50 AM[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/components/Navbar.jsx[22m
+[2m6:56:57 AM[22m [36m[1m[vite][22m[39m [32m.env changed, restarting server...[39m
+[2m6:56:57 AM[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/index.css, /src/App.jsx, /src/components/ExplorerHistorial.jsx[22m
+[2m6:56:57 AM[22m [36m[1m[vite][22m[39m server restarted.
